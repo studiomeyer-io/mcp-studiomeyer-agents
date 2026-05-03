@@ -1,0 +1,52 @@
+{
+  "name": "mcp-studiomeyer-agents",
+  "version": "0.1.0",
+  "description": "MCP Server for StudioMeyer Agents customers — read your AI-Audit Fleet data and configure your agents from your own Claude/ChatGPT/Cursor.",
+  "license": "MIT",
+  "author": "Matthias Meyer (StudioMeyer)",
+  "type": "module",
+  "bin": {
+    "mcp-studiomeyer-agents": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepack": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "studiomeyer",
+    "agents",
+    "ai-visibility",
+    "geo",
+    "memory",
+    "managed-agents"
+  ],
+  "homepage": "https://studiomeyer.io/services/agents",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/studiomeyer-io/mcp-studiomeyer-agents"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
