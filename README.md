@@ -1,6 +1,13 @@
 # mcp-studiomeyer-agents
 
-**MCP Server fuer StudioMeyer Agents Customers** — bring your AI-Audit Fleet data into your own Claude, ChatGPT, Cursor, or Codex.
+
+<!-- badges -->
+[![npm version](https://img.shields.io/npm/v/mcp-studiomeyer-agents?style=flat-square&color=cb3837&logo=npm&label=npm)](https://www.npmjs.com/package/mcp-studiomeyer-agents)
+[![npm downloads](https://img.shields.io/npm/dm/mcp-studiomeyer-agents?style=flat-square&color=cb3837&logo=npm&label=installs%2Fmo)](https://www.npmjs.com/package/mcp-studiomeyer-agents)
+![License](https://img.shields.io/github/license/studiomeyer-io/mcp-studiomeyer-agents?style=flat-square&color=22c55e&label=license)
+![Last commit](https://img.shields.io/github/last-commit/studiomeyer-io/mcp-studiomeyer-agents?style=flat-square&color=88c0d0&label=updated)
+![GitHub stars](https://img.shields.io/github/stars/studiomeyer-io/mcp-studiomeyer-agents?style=flat-square&color=ffd700&logo=github&label=stars)
+<!-- /badges -->**MCP Server fuer StudioMeyer Agents Customers** — bring your AI-Audit Fleet data into your own Claude, ChatGPT, Cursor, or Codex.
 
 You're a [StudioMeyer Agents](https://studiomeyer.io/services/agents) customer. We run 10 KI-Agents for you (Sichtbarkeit, Traffic, Konkurrenz, Technik, KI-Sichtbarkeit, Brand-Mention, Citation-Source, Branchen-Trend, Innovations, Master-Synthesizer). They work for you in 14-day cycles and deliver a clean PDF report.
 
