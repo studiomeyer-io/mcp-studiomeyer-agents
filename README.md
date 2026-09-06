@@ -124,7 +124,7 @@ This package talks to `https://studiomeyer.io/sma-bridge/*` over HTTPS with `Aut
 
 ## Hosting
 
-The host is operated by StudioMeyer (Mallorca + Hamburg) on Hetzner Frankfurt and Supabase EU. EU-only data residency.
+The host is operated by StudioMeyer (Palma de Mallorca) on our own infrastructure at Hetzner in Germany. EU-only data residency.
 
 ## License
 
