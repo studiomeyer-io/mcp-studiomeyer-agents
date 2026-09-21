@@ -17,19 +17,43 @@ import {
   type CustomerCustomConfig,
 } from "./types.js";
 
-export interface ToolDef<I extends z.ZodTypeAny = z.ZodTypeAny, O = unknown> {
+export interface ToolContext {
+  client: DataClient;
+  updatedBy: string;
+}
+
+export interface ToolDef<I extends z.ZodType = z.ZodType, O = unknown> {
   name: string;
   title: string;
   description: string;
   inputSchema: I;
   /** True = read-only (server can advertise readOnlyHint). */
   readOnly: boolean;
-  handler: (input: z.infer<I>, ctx: { client: DataClient; updatedBy: string }) => Promise<O>;
+  handler: (input: z.infer<I>, ctx: ToolContext) => Promise<O>;
+}
+
+/**
+ * A tool as the registry holds it. The input type of `handler` is only known
+ * where the tool is defined (zod 4 types the output of an arbitrary schema as
+ * `unknown`), so callers go through `run`: it parses the raw arguments with the
+ * tool's own inputSchema and hands the result to that tool's handler.
+ */
+export interface RegisteredTool extends Omit<ToolDef, "handler"> {
+  handler: (input: never, ctx: ToolContext) => Promise<unknown>;
+  run: (args: unknown, ctx: ToolContext) => Promise<unknown>;
+}
+
+/** Types the handler input from inputSchema and adds `run` (parse, then handle). */
+function defineTool<I extends z.ZodType, O>(def: ToolDef<I, O>) {
+  return {
+    ...def,
+    run: (args: unknown, ctx: ToolContext): Promise<O> => def.handler(def.inputSchema.parse(args), ctx),
+  };
 }
 
 // ─── Phase 2 — Read tools ──────────────────────────
 
-export const getLatestReportTool: ToolDef = {
+export const getLatestReportTool = defineTool({
   name: "sma_get_latest_report",
   title: "Get latest report",
   description:
@@ -42,9 +66,9 @@ export const getLatestReportTool: ToolDef = {
     if (!r) return { ok: false, message: "Noch kein Bericht — der erste Bericht entsteht 7-10 Tage nach Onboarding." };
     return { ok: true, report: r };
   },
-};
+});
 
-export const listReportsTool: ToolDef = {
+export const listReportsTool = defineTool({
   name: "sma_list_reports",
   title: "List reports",
   description: "Lists the last N reports (default 10, max 50). Use sma_compare_periods for diffing.",
@@ -56,9 +80,9 @@ export const listReportsTool: ToolDef = {
     const reports = await client.listReports(input.limit);
     return { ok: true, count: reports.length, reports };
   },
-};
+});
 
-export const searchFindingsTool: ToolDef = {
+export const searchFindingsTool = defineTool({
   name: "sma_search_findings",
   title: "Search findings",
   description:
@@ -74,9 +98,9 @@ export const searchFindingsTool: ToolDef = {
     const rows = await client.searchFindings(input);
     return { ok: true, count: rows.length, findings: rows };
   },
-};
+});
 
-export const loadAgentPersonaTool: ToolDef = {
+export const loadAgentPersonaTool = defineTool({
   name: "sma_load_agent_persona",
   title: "Load agent persona",
   description:
@@ -100,9 +124,9 @@ export const loadAgentPersonaTool: ToolDef = {
     }
     return { ok: true, persona };
   },
-};
+});
 
-export const listAgentPersonasTool: ToolDef = {
+export const listAgentPersonasTool = defineTool({
   name: "sma_list_agent_personas",
   title: "List all agent personas",
   description: "Returns all 9 worker agent personas in one call (lighter than 9 separate sma_load_agent_persona).",
@@ -112,9 +136,9 @@ export const listAgentPersonasTool: ToolDef = {
     const personas = await client.listAgentPersonas();
     return { ok: true, count: personas.length, personas };
   },
-};
+});
 
-export const comparePeriodsTool: ToolDef = {
+export const comparePeriodsTool = defineTool({
   name: "sma_compare_periods",
   title: "Compare two reports",
   description:
@@ -142,9 +166,9 @@ export const comparePeriodsTool: ToolDef = {
       hint: "Compare reportA vs reportB to identify changes between periods (e.g. visibility shifts, new competitors, new findings).",
     };
   },
-};
+});
 
-export const exportRawDataTool: ToolDef = {
+export const exportRawDataTool = defineTool({
   name: "sma_export_raw_data",
   title: "Export all data (DSGVO)",
   description:
@@ -161,9 +185,9 @@ export const exportRawDataTool: ToolDef = {
       ...dump,
     };
   },
-};
+});
 
-export const getConfigTool: ToolDef = {
+export const getConfigTool = defineTool({
   name: "sma_get_config",
   title: "Get current customer config",
   description: "Returns your current self-service config (focus topics, keywords, competitors, report style, alert threshold, global note).",
@@ -173,11 +197,11 @@ export const getConfigTool: ToolDef = {
     const config = await client.getConfig();
     return { ok: true, config };
   },
-};
+});
 
 // ─── Phase 3 — Set tools (validated client-side + host-side) ──
 
-export const setFocusTopicsTool: ToolDef = {
+export const setFocusTopicsTool = defineTool({
   name: "sma_set_focus_topics",
   title: "Set additional focus topics",
   description:
@@ -192,9 +216,9 @@ export const setFocusTopicsTool: ToolDef = {
     const config = await client.upsertConfig({ focusTopics: input.focusTopics }, updatedBy);
     return { ok: true, config };
   },
-};
+});
 
-export const setKeywordPrioritiesTool: ToolDef = {
+export const setKeywordPrioritiesTool = defineTool({
   name: "sma_set_keyword_priorities",
   title: "Set keyword priorities",
   description:
@@ -209,9 +233,9 @@ export const setKeywordPrioritiesTool: ToolDef = {
     const config = await client.upsertConfig({ keywordPriorities: input.keywordPriorities }, updatedBy);
     return { ok: true, config };
   },
-};
+});
 
-export const setCompetitorWatchTool: ToolDef = {
+export const setCompetitorWatchTool = defineTool({
   name: "sma_set_competitor_watch",
   title: "Set competitor watch list",
   description:
@@ -230,9 +254,9 @@ export const setCompetitorWatchTool: ToolDef = {
     const config = await client.upsertConfig(patch, updatedBy);
     return { ok: true, config };
   },
-};
+});
 
-export const setReportStyleTool: ToolDef = {
+export const setReportStyleTool = defineTool({
   name: "sma_set_report_style",
   title: "Set report style",
   description: "Choose the tone/length style for the 14-day report: " + ALLOWED_REPORT_STYLES.join(" / ") + ".",
@@ -245,9 +269,9 @@ export const setReportStyleTool: ToolDef = {
     const config = await client.upsertConfig({ reportStyle: input.reportStyle }, updatedBy);
     return { ok: true, config };
   },
-};
+});
 
-export const setAlertThresholdTool: ToolDef = {
+export const setAlertThresholdTool = defineTool({
   name: "sma_set_alert_threshold",
   title: "Set game-changer alert threshold",
   description:
@@ -262,9 +286,9 @@ export const setAlertThresholdTool: ToolDef = {
     const config = await client.upsertConfig({ alertThreshold: input.alertThreshold }, updatedBy);
     return { ok: true, config };
   },
-};
+});
 
-export const setGlobalNoteTool: ToolDef = {
+export const setGlobalNoteTool = defineTool({
   name: "sma_set_global_note",
   title: "Set free-form note for all agents",
   description:
@@ -283,11 +307,11 @@ export const setGlobalNoteTool: ToolDef = {
     const config = await client.upsertConfig({ globalNote: input.globalNote }, updatedBy);
     return { ok: true, config };
   },
-};
+});
 
 // ─── Tool Registry ─────────────────────────────────
 
-export const ALL_TOOLS: readonly ToolDef[] = [
+export const ALL_TOOLS: readonly RegisteredTool[] = [
   // Phase 2 read tools
   getLatestReportTool,
   listReportsTool,

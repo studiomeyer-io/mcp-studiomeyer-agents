@@ -14,7 +14,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { z } from "zod";
+import { z } from "zod";
 import { ALL_TOOLS } from "./tools.js";
 import { HttpDataClient, type DataClient } from "./data-client.js";
 import { McpStudioMeyerError } from "./types.js";
@@ -25,73 +25,67 @@ import { McpStudioMeyerError } from "./types.js";
 // Handles only the schema shapes our 14 tools use:
 //   z.object({...}).strict(), z.string/.number/.int/.min/.max,
 //   z.array/.max/.min, z.enum, z.optional, z.union.
+// zod 4: shapes are told apart with instanceof, bounds come from the schema's
+// own checks. The output stays exactly what the zod 3 version emitted (the
+// tools/list contract), including its limits: a .describe() on an .optional()
+// wrapper is not emitted, and strings get no length keywords.
 
-export function zodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
-  const def = schema._def as { typeName?: string; [k: string]: unknown };
-  switch (def.typeName) {
-    case "ZodObject": {
-      const shape = (def as { shape: () => Record<string, z.ZodTypeAny> }).shape();
-      const properties: Record<string, unknown> = {};
-      const required: string[] = [];
-      for (const [key, innerSchema] of Object.entries(shape)) {
-        properties[key] = zodToJsonSchema(innerSchema);
-        if (!innerSchema.isOptional()) required.push(key);
-      }
-      return {
-        type: "object",
-        properties,
-        ...(required.length > 0 ? { required } : {}),
-        additionalProperties: false,
-      };
+export function zodToJsonSchema(schema: z.core.$ZodType): Record<string, unknown> {
+  const desc = z.globalRegistry.get(schema)?.description;
+  if (schema instanceof z.ZodObject) {
+    const shape: Record<string, z.core.$ZodType> = schema.shape;
+    const properties: Record<string, unknown> = {};
+    const required: string[] = [];
+    for (const [key, innerSchema] of Object.entries(shape)) {
+      properties[key] = zodToJsonSchema(innerSchema);
+      // Same test as zod 3's isOptional(): does the field accept undefined?
+      if (!z.safeParse(innerSchema, undefined).success) required.push(key);
     }
-    case "ZodString": {
-      const desc = (def as { description?: string }).description;
-      return { type: "string", ...(desc ? { description: desc } : {}) };
-    }
-    case "ZodNumber": {
-      const checks = (def as { checks?: Array<{ kind: string; value: number }> }).checks ?? [];
-      const minCheck = checks.find((c) => c.kind === "min");
-      const maxCheck = checks.find((c) => c.kind === "max");
-      const intCheck = checks.find((c) => c.kind === "int");
-      const desc = (def as { description?: string }).description;
-      return {
-        type: intCheck ? "integer" : "number",
-        ...(minCheck ? { minimum: minCheck.value } : {}),
-        ...(maxCheck ? { maximum: maxCheck.value } : {}),
-        ...(desc ? { description: desc } : {}),
-      };
-    }
-    case "ZodArray": {
-      const inner = (def as { type: z.ZodTypeAny }).type;
-      const checks = (def as { exactLength?: { value: number }; minLength?: { value: number }; maxLength?: { value: number } });
-      const desc = (def as { description?: string }).description;
-      return {
-        type: "array",
-        items: zodToJsonSchema(inner),
-        ...(checks.minLength ? { minItems: checks.minLength.value } : {}),
-        ...(checks.maxLength ? { maxItems: checks.maxLength.value } : {}),
-        ...(desc ? { description: desc } : {}),
-      };
-    }
-    case "ZodEnum": {
-      const values = (def as { values: string[] }).values;
-      const desc = (def as { description?: string }).description;
-      return { type: "string", enum: values, ...(desc ? { description: desc } : {}) };
-    }
-    case "ZodOptional": {
-      const inner = (def as { innerType: z.ZodTypeAny }).innerType;
-      return zodToJsonSchema(inner);
-    }
-    case "ZodUnion": {
-      const options = (def as { options: z.ZodTypeAny[] }).options;
-      return { anyOf: options.map(zodToJsonSchema) };
-    }
-    default: {
-      // Fallback — describes loosely
-      const desc = (def as { description?: string }).description;
-      return { ...(desc ? { description: desc } : {}) };
-    }
+    return {
+      type: "object",
+      properties,
+      ...(required.length > 0 ? { required } : {}),
+      additionalProperties: false,
+    };
   }
+  if (schema instanceof z.ZodString) {
+    return { type: "string", ...(desc ? { description: desc } : {}) };
+  }
+  if (schema instanceof z.ZodNumber) {
+    const checks = schema.def.checks ?? [];
+    const minCheck = checks.find((c) => c instanceof z.core.$ZodCheckGreaterThan);
+    const maxCheck = checks.find((c) => c instanceof z.core.$ZodCheckLessThan);
+    const intCheck = checks.find((c) => c instanceof z.core.$ZodCheckNumberFormat && c._zod.def.format.includes("int"));
+    return {
+      type: intCheck ? "integer" : "number",
+      ...(minCheck ? { minimum: minCheck._zod.def.value } : {}),
+      ...(maxCheck ? { maximum: maxCheck._zod.def.value } : {}),
+      ...(desc ? { description: desc } : {}),
+    };
+  }
+  if (schema instanceof z.ZodArray) {
+    const checks = schema.def.checks ?? [];
+    const minLength = checks.find((c) => c instanceof z.core.$ZodCheckMinLength);
+    const maxLength = checks.find((c) => c instanceof z.core.$ZodCheckMaxLength);
+    return {
+      type: "array",
+      items: zodToJsonSchema(schema.element),
+      ...(minLength ? { minItems: minLength._zod.def.minimum } : {}),
+      ...(maxLength ? { maxItems: maxLength._zod.def.maximum } : {}),
+      ...(desc ? { description: desc } : {}),
+    };
+  }
+  if (schema instanceof z.ZodEnum) {
+    return { type: "string", enum: schema.options, ...(desc ? { description: desc } : {}) };
+  }
+  if (schema instanceof z.ZodOptional) {
+    return zodToJsonSchema(schema.unwrap());
+  }
+  if (schema instanceof z.ZodUnion) {
+    return { anyOf: schema.options.map(zodToJsonSchema) };
+  }
+  // Fallback: describes loosely
+  return { ...(desc ? { description: desc } : {}) };
 }
 
 export interface ServerOptions {
@@ -155,8 +149,9 @@ export function createMcpServer(opts: ServerOptions) {
       };
     }
     try {
-      const parsed = tool.inputSchema.parse(request.params.arguments ?? {});
-      const result = await tool.handler(parsed, {
+      // run() parses with the tool's inputSchema first, so invalid input still
+      // throws a ZodError here and never reaches the handler.
+      const result = await tool.run(request.params.arguments ?? {}, {
         client: dataClient,
         updatedBy: opts.updatedBy ?? "mcp-customer",
       });
