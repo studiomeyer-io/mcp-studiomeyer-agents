@@ -3,6 +3,19 @@
 All notable changes to `mcp-studiomeyer-agents` are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) — versioning: [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- `zod` 3 to 4 (runtime dependency, now `^4.6.5`) and `vitest` 4 to 5 (dev).
+  The tool schemas in `tools/list` are byte-identical to 0.1.0: the
+  zod-to-JSON-Schema converter reads zod 4's own classes and checks instead
+  of zod 3 internals. A plain bump would not have been enough, it emitted
+  `inputSchema: {}` for all 14 tools.
+- Invalid tool input is still rejected before any backend call, but the
+  error text now comes in zod 4's wording, e.g. `Too big: expected number to
+  be <=50` instead of `Number must be less than or equal to 50`. Clients that
+  match on the old wording need an update.
+
 ## [0.1.0] - 2026-05-04
 
 Initial release. Built in Session 985 of StudioMeyer's nex-hq alongside the
