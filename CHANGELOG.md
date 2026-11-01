@@ -5,6 +5,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) — versioning:
 
 ## [Unreleased]
 
+
+### Dependency maintenance
+
+- Refresh locked transitive dependencies within existing manifest ranges. This lockfile maintenance does not publish a new package or change its public API.
+- Include MCP SDK 1.32.2 from the grouped maintenance review. Build, lint and all 53 tests pass; both dependency audit scopes report zero findings.
+
 ### Changed
 - `zod` 3 to 4 (runtime dependency, now `^4.6.5`) and `vitest` 4 to 5 (dev).
   The tool schemas in `tools/list` are byte-identical to 0.1.0: the
